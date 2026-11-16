@@ -1,85 +1,83 @@
 "use strict";
 
-// Практическая работа №5
-// Тема: объекты в JavaScript.
-// Заполните только участки TODO.
-// Названия функций, параметры и module.exports не изменяйте.
+const products = [
+  { id: 1, name: "Ноутбук", price: 350000, category: "Техника", inStock: true },
+  { id: 2, name: "Мышь", price: 7000, category: "Аксессуары", inStock: true },
+  { id: 3, name: "Монитор", price: 120000, category: "Техника", inStock: false },
+  { id: 4, name: "Клавиатура", price: 15000, category: "Аксессуары", inStock: true },
+  { id: 5, name: "Наушники", price: 28000, category: "Аудио", inStock: true },
+  { id: 6, name: "Микрофон", price: 45000, category: "Аудио", inStock: false },
+];
 
-// 1. Получение свойства по ключу
-// Вернуть значение свойства объекта по имени key.
-// Имя свойства приходит в переменной, поэтому используйте динамический доступ.
-function getProperty(object, key) {
-  return object[key];
+function createProductCard(product) {
+  const article = document.createElement("article");
+  article.classList.add("product-card");
+  if (!product.inStock) article.classList.add("product-card--out");
+
+  const title = document.createElement("h3");
+  title.classList.add("product-card__title");
+  title.textContent = product.name;
+
+  const category = document.createElement("p");
+  category.classList.add("product-card__category");
+  category.textContent = `Категория: ${product.category}`;
+
+  const price = document.createElement("p");
+  price.classList.add("product-card__price");
+  price.textContent = `Цена: ${product.price} ₸`;
+
+  const stock = document.createElement("p");
+  stock.classList.add("product-card__stock");
+  stock.textContent = product.inStock ? "В наличии" : "Нет в наличии";
+
+  article.append(title, category, price, stock);
+  return article;
 }
 
-// 2. Количество свойств
-// Вернуть количество собственных перечисляемых свойств объекта.
-function countProperties(object) {
-  return Object.keys(object).length;
+function calculateStats(items) {
+  const count = items.length;
+  const availableCount = items.filter((item) => item.inStock).length;
+  const totalPrice = items.reduce((sum, item) => sum + item.price, 0);
+  const mostExpensive = items.length
+    ? items.reduce((max, item) => (item.price > max.price ? item : max))
+    : null;
+  return { count, availableCount, totalPrice, mostExpensive };
 }
 
-// 3. Сумма числовых свойств
-// Просмотреть все свойства объекта и вернуть сумму только тех значений,
-// для которых typeof value === "number".
-// В тестах используются обычные конечные числа.
-function sumNumericProperties(object) {
-  let sum = 0;
-  for (const key in object) {
-    if (typeof object[key] === "number") {
-      sum += object[key];
-    }
-  }
-  return sum;
+function countByCategory(items) {
+  const result = {};
+  items.forEach((item) => {
+    result[item.category] = (result[item.category] || 0) + 1;
+  });
+  return result;
 }
 
-// 4. Объект товара с методом
-// Вернуть объект со свойствами name, price, quantity
-// и методом getTotal(), который возвращает price * quantity.
-// Метод должен использовать текущие свойства объекта через this.
-function createProduct(name, price, quantity) {
-  return {
-    name,
-    price,
-    quantity,
-    getTotal() {
-      return this.price * this.quantity;
-    },
-  };
+function renderCatalog(items) {
+  const catalog = document.querySelector("#catalog");
+  catalog.replaceChildren();
+  items.forEach((item) => catalog.append(createProductCard(item)));
+
+  const stats = calculateStats(items);
+  document.querySelector("#product-count").textContent = stats.count;
+  document.querySelector("#available-count").textContent = stats.availableCount;
+  document.querySelector("#total-price").textContent = `${stats.totalPrice} ₸`;
+  document.querySelector("#most-expensive").textContent = stats.mostExpensive
+    ? `${stats.mostExpensive.name} — ${stats.mostExpensive.price} ₸`
+    : "—";
+
+  const categoryList = document.querySelector("#category-stats");
+  categoryList.replaceChildren();
+  Object.entries(countByCategory(items)).forEach(([category, quantity]) => {
+    const li = document.createElement("li");
+    li.textContent = `${category}: ${quantity}`;
+    categoryList.append(li);
+  });
+
+  return items.length;
 }
 
-// 5. Средний балл студента
-// student — объект вида:
-// { name: "Иван", grades: [5, 4, 3, 5] }
-// Вернуть среднее арифметическое оценок.
-// Если grades пустой — вернуть 0.
-function calculateAverageGrade(student) {
-  const grades = student.grades;
-  if (grades.length === 0) return 0;
-  const sum = grades.reduce((acc, g) => acc + g, 0);
-  return sum / grades.length;
-}
+window.domSrs = { products, createProductCard, calculateStats, countByCategory, renderCatalog };
 
-// 6. Самый дорогой товар
-// products — массив объектов вида { name, price }.
-// Вернуть объект товара с максимальной ценой.
-// Если массив пустой — вернуть null.
-// Если максимальная цена встречается несколько раз — вернуть первый такой товар.
-function findMostExpensiveProduct(products) {
-  if (products.length === 0) return null;
-  let most = products[0];
-  for (let i = 1; i < products.length; i++) {
-    if (products[i].price > most.price) {
-      most = products[i];
-    }
-  }
-  return most;
-}
-
-module.exports = {
-  getProperty,
-  countProperties,
-  sumNumericProperties,
-  createProduct,
-  calculateAverageGrade,
-  findMostExpensiveProduct,
-};
+document.addEventListener("DOMContentLoaded", () => {
+  if (document.querySelector("#catalog")) renderCatalog(products);
+});
