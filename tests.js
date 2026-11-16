@@ -1,112 +1,102 @@
 "use strict";
 
-const assert = require("node:assert/strict");
-const student = require("./student-template.js");
+document.addEventListener("DOMContentLoaded", () => {
+  const results = document.querySelector("#test-results");
+  const fixture = document.querySelector("#fixture");
+  const api = window.domSrs;
+  let failed = 0;
 
-function test(name, fn) {
-  try {
-    fn();
-    console.log(`✓ ${name}`);
-  } catch (error) {
-    console.error(`✗ ${name}`);
-    console.error(`  ${error.message}`);
-    process.exitCode = 1;
+  function assert(condition, message) {
+    if (!condition) throw new Error(message);
   }
-}
 
-test("1. Получение свойства по ключу", () => {
-  const user = { name: "Alex", age: 20, city: "Алматы" };
+  function resetFixture() {
+    fixture.innerHTML = `
+      <div id="catalog"></div>
+      <span id="product-count"></span>
+      <span id="available-count"></span>
+      <span id="total-price"></span>
+      <span id="most-expensive"></span>
+      <ul id="category-stats"></ul>
+    `;
+  }
 
-  assert.equal(student.getProperty(user, "name"), "Alex");
-  assert.equal(student.getProperty(user, "age"), 20);
-  assert.equal(student.getProperty(user, "city"), "Алматы");
-  assert.equal(student.getProperty(user, "missing"), undefined);
-});
+  function test(name, fn) {
+    resetFixture();
+    try {
+      fn();
+      const p = document.createElement("p");
+      p.className = "ok";
+      p.textContent = `✓ ${name}`;
+      results.append(p);
+    } catch (error) {
+      failed++;
+      const p = document.createElement("p");
+      p.className = "fail";
+      p.textContent = `✗ ${name}: ${error.message}`;
+      results.append(p);
+    }
+  }
 
-test("2. Количество свойств", () => {
-  assert.equal(student.countProperties({}), 0);
-  assert.equal(student.countProperties({ name: "Alex" }), 1);
-  assert.equal(student.countProperties({ a: 1, b: 2, c: 3 }), 3);
-  assert.equal(student.countProperties({ name: "Ivan", grades: [5, 4], active: true }), 3);
-});
-
-test("3. Сумма числовых свойств", () => {
-  assert.equal(
-    student.sumNumericProperties({ price: 100, quantity: 3, title: "Book" }),
-    103
-  );
-
-  assert.equal(
-    student.sumNumericProperties({ a: 10, b: -5, c: 2.5, enabled: true }),
-    7.5
-  );
-
-  assert.equal(
-    student.sumNumericProperties({ name: "Alex", active: false }),
-    0
-  );
-});
-
-test("4. Объект товара с методом", () => {
-  const product = student.createProduct("Keyboard", 12000, 2);
-
-  assert.equal(product.name, "Keyboard");
-  assert.equal(product.price, 12000);
-  assert.equal(product.quantity, 2);
-  assert.equal(typeof product.getTotal, "function");
-  assert.equal(product.getTotal(), 24000);
-
-  product.quantity = 3;
-  assert.equal(product.getTotal(), 36000);
-
-  product.price = 10000;
-  assert.equal(product.getTotal(), 30000);
-});
-
-test("5. Средний балл студента", () => {
-  assert.equal(
-    student.calculateAverageGrade({ name: "Иван", grades: [5, 4, 3, 4] }),
-    4
-  );
-
-  assert.equal(
-    student.calculateAverageGrade({ name: "Мария", grades: [5, 5, 4, 5] }),
-    4.75
-  );
-
-  assert.equal(
-    student.calculateAverageGrade({ name: "Пётр", grades: [3] }),
-    3
-  );
-
-  assert.equal(
-    student.calculateAverageGrade({ name: "Анна", grades: [] }),
-    0
-  );
-});
-
-test("6. Самый дорогой товар", () => {
-  const products = [
-    { name: "Mouse", price: 5000 },
-    { name: "Keyboard", price: 12000 },
-    { name: "Monitor", price: 85000 },
+  const sample = [
+    { id: 1, name: "A", price: 100, category: "X", inStock: true },
+    { id: 2, name: "B", price: 250, category: "Y", inStock: false },
+    { id: 3, name: "C", price: 150, category: "X", inStock: true },
   ];
 
-  assert.strictEqual(student.findMostExpensiveProduct(products), products[2]);
+  test("Карточка товара формируется через DOM", () => {
+    const card = api.createProductCard(sample[0]);
+    assert(card.tagName === "ARTICLE", "карточка должна быть article");
+    assert(card.classList.contains("product-card"), "нет класса product-card");
+    assert(card.querySelector("h3").textContent === "A", "неверное название");
+    assert(card.querySelector(".product-card__category").textContent === "Категория: X", "неверная категория");
+    assert(card.querySelector(".product-card__price").textContent === "Цена: 100 ₸", "неверная цена");
+    assert(card.querySelector(".product-card__stock").textContent === "В наличии", "неверный статус");
+  });
 
-  const one = [{ name: "Book", price: 2500 }];
-  assert.strictEqual(student.findMostExpensiveProduct(one), one[0]);
+  test("Отсутствующий товар получает отдельное состояние", () => {
+    const card = api.createProductCard(sample[1]);
+    assert(card.classList.contains("product-card--out"), "должен быть класс product-card--out");
+    assert(card.querySelector(".product-card__stock").textContent === "Нет в наличии", "неверный текст статуса");
+  });
 
-  const tie = [
-    { name: "A", price: 100 },
-    { name: "B", price: 100 },
-    { name: "C", price: 90 },
-  ];
-  assert.strictEqual(student.findMostExpensiveProduct(tie), tie[0]);
+  test("Статистика рассчитывается корректно", () => {
+    const stats = api.calculateStats(sample);
+    assert(stats.count === 3, "count должен быть 3");
+    assert(stats.availableCount === 2, "availableCount должен быть 2");
+    assert(stats.totalPrice === 500, "totalPrice должен быть 500");
+    assert(stats.mostExpensive === sample[1], "нужно вернуть исходный объект самого дорогого товара");
+    const empty = api.calculateStats([]);
+    assert(empty.mostExpensive === null, "для пустого массива mostExpensive должен быть null");
+  });
 
-  assert.equal(student.findMostExpensiveProduct([]), null);
+  test("Категории группируются", () => {
+    const categories = api.countByCategory(sample);
+    assert(categories.X === 2, "в категории X должно быть 2");
+    assert(categories.Y === 1, "в категории Y должен быть 1");
+  });
+
+  test("Каталог и блок статистики выводятся на страницу", () => {
+    const count = api.renderCatalog(sample);
+    assert(count === 3, "renderCatalog должна вернуть 3");
+    assert(document.querySelectorAll("#catalog .product-card").length === 3, "нужно вывести 3 карточки");
+    assert(document.querySelector("#product-count").textContent === "3", "не заполнено количество");
+    assert(document.querySelector("#available-count").textContent === "2", "не заполнено наличие");
+    assert(document.querySelector("#total-price").textContent === "500 ₸", "не заполнена сумма цен");
+    assert(document.querySelector("#most-expensive").textContent === "B — 250 ₸", "не заполнен самый дорогой товар");
+  });
+
+  test("Повторный вывод очищает страницу и обновляет категории", () => {
+    api.renderCatalog(sample);
+    api.renderCatalog([sample[0]]);
+    assert(document.querySelectorAll("#catalog .product-card").length === 1, "старые карточки нужно удалить");
+    const categories = [...document.querySelectorAll("#category-stats li")].map((li) => li.textContent);
+    assert(categories.length === 1 && categories[0] === "X: 1", "статистика категорий должна обновляться");
+  });
+
+  const summary = document.createElement("p");
+  summary.id = "test-summary";
+  summary.className = failed === 0 ? "ok" : "fail";
+  summary.textContent = failed === 0 ? "Все тесты пройдены." : `Ошибок: ${failed}.`;
+  results.append(summary);
 });
-
-if (!process.exitCode) {
-  console.log("\nВсе тесты пройдены.");
-}
